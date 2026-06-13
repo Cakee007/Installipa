@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InstallIPA - iOS 应用在线安装</title>
+    <meta name="theme-color" content="#4285F4">
+    <style>
+        :root {
+            --blue: #4285F4;
+            --red: #EA4335;
+            --yellow: #FBBC04;
+            --green: #34A853;
+            --bg: #FFFFFF;
+            --surface: #F8F9FA;
+            --border: #DADCE0;
+            --text: #202124;
+            --text-secondary: #5F6368;
+            --radius: 8px;
+            --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .site-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--blue);
+            margin-bottom: 4px;
+            text-align: center;
+        }
+
+        .site-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        .search-wrapper {
+            width: 100%;
+            max-width: 480px;
+            margin-bottom: 32px;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+            background: var(--surface);
+        }
+
+        .search-box input {
+            border: none;
+            padding: 10px 16px;
+            flex: 1;
+            outline: none;
+            font-size: 0.95rem;
+            background: transparent;
+            color: var(--text);
+        }
+
+        .search-box button {
+            background: transparent;
+            border: none;
+            padding: 10px 14px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            display: none;
+        }
+
+        .search-box button.visible {
+            display: inline-block;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .shuffle-btn {
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text);
+            transition: background 0.1s;
+        }
+
+        .shuffle-btn:hover {
+            background: var(--surface);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+            width: 100%;
+        }
+
+        .app-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .app-card .top {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .app-card img {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius);
+            background: var(--surface);
+            object-fit: contain;
+        }
+
+        .app-card .info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .app-card .name {
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .app-card .meta {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .app-card .desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .app-card .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: auto;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: var(--radius);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: white;
+            flex: 1;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text);
+            display: inline-block;
+        }
+
+        .btn.primary {
+            background: var(--blue);
+            color: white;
+            border-color: var(--blue);
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .result-hint {
+            width: 100%;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .result-hint .clear-search {
+            background: none;
+            border: none;
+            color: var(--blue);
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-decoration: underline;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            width: 100%;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 100;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .modal.open {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px 12px 0 0;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 16px 20px 24px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            margin-top: auto;
+        }
+
+        @media (max-width: 640px) {
+            .main-content {
+                padding: 24px 16px;
+            }
+            .site-title {
+                font-size: 2rem;
+            }
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <h1 class="site-title">InstallIPA</h1>
+        <p class="site-subtitle">iOS 应用在线安装 · 无需越狱</p>
+
+        <div class="search-wrapper">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索应用..." autocomplete="off">
+                <button id="clearSearchBtn" title="清除">&#x2715;</button>
+            </div>
+        </div>
+
+        <div class="section-header" id="sectionHeader">
+            <span class="section-title" id="sectionTitle">随机推荐</span>
+            <button class="shuffle-btn" id="shuffleBtn">刷新</button>
+        </div>
+        <div id="resultHint" class="result-hint" style="display:none;"></div>
+        <div class="grid" id="appGrid"></div>
+        <div class="no-results" id="noResults" style="display:none;">没有找到相关应用</div>
+    </div>
+
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalName"></h3>
+                <button class="modal-close" id="modalClose">&#x2715;</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        InstallIPA · 支持 iPhone / iPad 在线安装
+    </footer>
+
+    <script>
+        let apps = [];
+        let searchQuery = '';
+
+        function detectDevice() {
+            const ua = navigator.userAgent;
+            const isIOS = /iPhone|iPad|iPod/i.test(ua);
+            const isAndroid = /Android/i.test(ua);
+            return { isIOS, isAndroid };
+        }
+        const device = detectDevice();
+
+        async function loadApps() {
+            try {
+                const res = await fetch('apps.json');
+                if (!res.ok) throw new Error('apps.json 加载失败');
+                apps = await res.json();
+                apps = apps.map(a => ({ ...a, category: a.category || '应用' }));
+            } catch (e) {
+                console.error('无法加载 apps.json，请运行 generate.js 生成应用列表');
+                apps = [];
+                document.getElementById('appGrid').innerHTML =
+                    '<p class="no-results">尚未添加应用，请使用 generate.js 生成 apps.json</p>';
+                document.getElementById('shuffleBtn').style.display = 'none';
+                return;
+            }
+            renderContent();
+        }
+
+        function getFilteredApps() {
+            if (!searchQuery.trim()) return null;
+            const query = searchQuery.trim().toLowerCase();
+            return apps.filter(app => app.name.toLowerCase().includes(query));
+        }
+
+        function getRandomApps(count = 6) {
+            if (apps.length === 0) return [];
+            const shuffled = [...apps].sort(() => Math.random() - 0.5);
+            return shuffled.slice(0, Math.min(count, shuffled.length));
+        }
+
+        function createCard(app) {
+            const card = document.createElement('div');
+            card.className = 'app-card';
+            const appDataSafe = JSON.stringify(app).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+            card.innerHTML = `
+                <div class="top">
+                    ${app.icon ? `<img src="${app.icon}" alt="icon" onerror="this.style.display='none'">` : ''}
+                    <div class="info">
+                        <div class="name">${escapeHTML(app.name)}</div>
+                        <div class="meta">${app.version} · ${app.size || ''}</div>
+                    </div>
+                </div>
+                <div class="desc">${escapeHTML(app.description || '')}</div>
+                <div class="actions">
+                    <button class="btn primary install-btn" data-app='${appDataSafe}'>安装</button>
+                    <button class="btn detail-btn" data-app='${appDataSafe}'>详情</button>
+                </div>
+            `;
+            return card;
+        }
+
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function renderGrid(appList) {
+            const grid = document.getElementById('appGrid');
+            const noResults = document.getElementById('noResults');
+            grid.innerHTML = '';
+            if (appList.length === 0) {
+                noResults.style.display = 'block';
+                grid.style.display = 'none';
+            } else {
+                noResults.style.display = 'none';
+                grid.style.display = '';
+                appList.forEach(app => grid.appendChild(createCard(app)));
+            }
+        }
+
+        function renderContent() {
+            const isSearchMode = !!searchQuery.trim();
+            const filtered = isSearchMode ? getFilteredApps() : null;
+            const displayApps = isSearchMode ? filtered : getRandomApps(6);
+
+            document.getElementById('sectionTitle').textContent = isSearchMode ? '搜索结果' : '随机推荐';
+            document.getElementById('shuffleBtn').style.display = isSearchMode ? 'none' : 'inline-block';
+
+            const resultHint = document.getElementById('resultHint');
+            if (isSearchMode) {
+                resultHint.style.display = 'flex';
+                resultHint.innerHTML = `找到 ${displayApps.length} 个应用 <button class="clear-search" id="clearSearchLink">清除搜索</button>`;
+                document.getElementById('clearSearchLink').addEventListener('click', clearSearch);
+            } else {
+                resultHint.style.display = 'none';
+            }
+
+            renderGrid(displayApps);
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            searchQuery = '';
+            document.getElementById('clearSearchBtn').classList.remove('visible');
+            renderContent();
+        }
+
+        function handleInstall(app) {
+            if (device.isIOS) {
+                if (!app.plistUrl) {
+                    alert('未找到安装配置');
+                    return;
+                }
+                const installUrl = `itms-services://?action=download-manifest&url=${encodeURIComponent(app.plistUrl)}`;
+                window.location.href = installUrl;
+            } else if (device.isAndroid) {
+                if (app.apkUrl) {
+                    window.open(app.apkUrl, '_blank');
+                } else {
+                    alert('暂无安卓版本，仅支持 iOS 安装');
+                }
+            } else {
+                alert('请使用 iPhone/iPad 访问此页面进行安装');
+            }
+        }
+
+        function openDetail(app) {
+            document.getElementById('detailModal').classList.add('open');
+            document.getElementById('modalName').textContent = app.name;
+            const body = document.getElementById('modalBody');
+            body.innerHTML = `
+                <p><strong>版本：</strong>${app.version}</p>
+                <p><strong>大小：</strong>${app.size || '未知'}</p>
+                <p><strong>Bundle ID：</strong>${app.bundleId || ''}</p>
+                <p>${escapeHTML(app.description || '')}</p>
+                <button class="btn primary" style="width:100%;margin-top:12px;" onclick="handleInstall(${JSON.stringify(app).replace(/"/g, '&quot;')})">安装</button>
+            `;
+        }
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('button');
+
+            if (btn && btn.classList.contains('install-btn') && btn.dataset.app) {
+                const app = JSON.parse(btn.dataset.app.replace(/&#39;/g, "'").replace(/&quot;/g, '"'));
+                handleInstall(app);
+            }
+
+            if (btn && btn.classList.contains('detail-btn') && btn.dataset.app) {
+                const app = JSON.parse(btn.dataset.app.replace(/&#39;/g, "'").replace(/&quot;/g, '"'));
+                openDetail(app);
+            }
+
+            if (btn && btn.id === 'shuffleBtn') {
+                renderContent();
+            }
+        });
+
+        const searchInput = document.getElementById('searchInput');
+        const clearBtn = document.getElementById('clearSearchBtn');
+
+        searchInput.addEventListener('input', function() {
+            searchQuery = this.value;
+            if (searchQuery.trim()) {
+                clearBtn.classList.add('visible');
+            } else {
+                clearBtn.classList.remove('visible');
+            }
+            renderContent();
+        });
+
+        clearBtn.addEventListener('click', function() {
+            clearSearch();
+            searchInput.focus();
+        });
+
+        document.getElementById('modalClose').addEventListener('click', function() {
+            document.getElementById('detailModal').classList.remove('open');
+        });
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) document.getElementById('detailModal').classList.remove('open');
+        });
+
+        loadApps();
+    </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "installipa",
+  "version": "1.0.0",
+  "description": "自动生成 iOS IPA 安装清单",
+  "scripts": {
+    "generate": "node generate.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "plist": "^3.1.0"
+  }
+}

@@ -1,0 +1,133 @@
+const fs = require('fs');
+const path = require('path');
+const plist = require('plist');
+const AdmZip = require('adm-zip');
+const crypto = require('crypto');
+
+const IPA_DIR = path.join(__dirname, 'ipa');
+const PUBLIC_DIR = __dirname;
+const PLIST_DIR = path.join(PUBLIC_DIR, 'plist');
+const ICON_DIR = path.join(PUBLIC_DIR, 'icons');
+const APPS_JSON = path.join(PUBLIC_DIR, 'apps.json');
+
+// 自动创建必要目录
+[IPA_DIR, PLIST_DIR, ICON_DIR].forEach(dir => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
+// 如果 ipa 文件夹为空，放入 .gitkeep
+const ipaContents = fs.readdirSync(IPA_DIR).filter(f => f !== '.gitkeep');
+if (ipaContents.length === 0) {
+    const gitkeepPath = path.join(IPA_DIR, '.gitkeep');
+    if (!fs.existsSync(gitkeepPath)) {
+        fs.writeFileSync(gitkeepPath, '');
+    }
+}
+
+async function processIPA(ipaPath) {
+    const zip = new AdmZip(ipaPath);
+    const fileName = path.basename(ipaPath, '.ipa');
+    const ipaName = fileName.replace(/[^a-zA-Z0-9_]/g, '_');
+
+    const plistEntries = zip.getEntries().filter(e => e.entryName.endsWith('.app/Info.plist'));
+    if (plistEntries.length === 0) throw new Error('未找到 Info.plist');
+    const plistData = plist.parse(plistEntries[0].getData().toString('utf8'));
+
+    const bundleId = plistData.CFBundleIdentifier;
+    const version = plistData.CFBundleShortVersionString || '1.0';
+    const displayName = plistData.CFBundleDisplayName || plistData.CFBundleName || fileName;
+
+    let iconName = 'AppIcon60x60@2x.png';
+    const icons = plistData.CFBundleIcons?.CFBundlePrimaryIcon?.CFBundleIconFiles ||
+                  plistData.CFBundleIconFiles || [];
+    if (icons.length > 0) iconName = icons[icons.length - 1] + '.png';
+
+    let iconEntry = zip.getEntry(`Payload/*.app/${iconName}`);
+    if (!iconEntry) {
+        iconEntry = zip.getEntries().find(e => e.entryName.includes('.app/') && e.entryName.endsWith('.png'));
+    }
+
+    let iconUrl = '';
+    if (iconEntry) {
+        const iconFileName = `${ipaName}_icon.png`;
+        const iconOutPath = path.join(ICON_DIR, iconFileName);
+        fs.writeFileSync(iconOutPath, iconEntry.getData());
+        iconUrl = `icons/${iconFileName}`;
+    }
+
+    const plistFileName = `${ipaName}.plist`;
+    const plistPath = path.join(PLIST_DIR, plistFileName);
+    // ========== 修改下面这行为你的 GitHub Pages 地址 ==========
+    const baseURL = 'https://github.com/Cakee007/Installipa';
+    // =========================================================
+    const ipaURL = `${baseURL}/ipa/${path.basename(ipaPath)}`;
+    const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>items</key>
+    <array>
+        <dict>
+            <key>assets</key>
+            <array>
+                <dict>
+                    <key>kind</key>
+                    <string>software-package</string>
+                    <key>url</key>
+                    <string>${ipaURL}</string>
+                </dict>
+            </array>
+            <key>metadata</key>
+            <dict>
+                <key>bundle-identifier</key>
+                <string>${bundleId}</string>
+                <key>bundle-version</key>
+                <string>${version}</string>
+                <key>kind</key>
+                <string>software</string>
+                <key>title</key>
+                <string>${displayName}</string>
+            </dict>
+        </dict>
+    </array>
+</dict>
+</plist>`;
+    fs.writeFileSync(plistPath, plistContent, 'utf8');
+
+    return {
+        id: crypto.createHash('md5').update(bundleId).digest('hex').slice(0, 8),
+        name: displayName,
+        bundleId,
+        version,
+        icon: iconUrl,
+        ipaUrl: `ipa/${path.basename(ipaPath)}`,
+        plistUrl: `plist/${plistFileName}`,
+        apkUrl: '',
+        size: (fs.statSync(ipaPath).size / (1024 * 1024)).toFixed(1) + ' MB',
+        category: '应用',
+        description: '由 InstallIPA 自动生成',
+        minIosVersion: plistData.MinimumOSVersion || '12.0',
+        screenshots: []
+    };
+}
+
+async function main() {
+    if (!fs.existsSync(IPA_DIR)) fs.mkdirSync(IPA_DIR);
+    const ipaFiles = fs.readdirSync(IPA_DIR).filter(f => f.toLowerCase().endsWith('.ipa'));
+
+    const apps = [];
+    for (const file of ipaFiles) {
+        try {
+            console.log(`处理中: ${file}`);
+            const app = await processIPA(path.join(IPA_DIR, file));
+            apps.push(app);
+        } catch (err) {
+            console.error(`处理 ${file} 失败:`, err.message);
+        }
+    }
+
+    fs.writeFileSync(APPS_JSON, JSON.stringify(apps, null, 2));
+    console.log(`成功生成 apps.json，共 ${apps.length} 个应用`);
+}
+
+main();
