@@ -13,5 +13,35 @@
     "description": "由 InstallIPA 自动生成",
     "minIosVersion": "6.0",
     "screenshots": []
+  },
+  {
+    "id": "253f682c",
+    "name": "Fruit Ninja Classic",
+    "bundleId": "com.Halfbrick.Fruit",
+    "version": "2.3.9",
+    "icon": "icons/____Fruit_Ninja_2_3_9______iOS7__iosipa_____icon.png",
+    "ipaUrl": "ipa/水果忍者Fruit Ninja_2.3.9（爱思正版）iOS7+[iosipa软件网].ipa",
+    "plistUrl": "plist/____Fruit_Ninja_2_3_9______iOS7__iosipa____.plist",
+    "apkUrl": "",
+    "size": "94.5 MB",
+    "category": "应用",
+    "description": "由 InstallIPA 自动生成",
+    "minIosVersion": "7.0",
+    "screenshots": []
+  },
+  {
+    "id": "63c36d5d",
+    "name": "Piano Tiles 2",
+    "bundleId": "com.cmplay.tiles2",
+    "version": "2.0.5",
+    "icon": "icons/___2_2_05______icon.png",
+    "ipaUrl": "ipa/钢琴块2 2.05 爱思正版.ipa",
+    "plistUrl": "plist/___2_2_05_____.plist",
+    "apkUrl": "",
+    "size": "45.3 MB",
+    "category": "应用",
+    "description": "由 InstallIPA 自动生成",
+    "minIosVersion": "7.0",
+    "screenshots": []
   }
 ]
