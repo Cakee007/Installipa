@@ -1,0 +1,17 @@
+[
+  {
+    "id": "5c8300b6",
+    "name": "Minecraft PE",
+    "bundleId": "com.mojang.minecraftpe",
+    "version": "0.14.3",
+    "icon": "icons/_____Minecraft_PE_0_14_3________icon.png",
+    "ipaUrl": "ipa/我的世界 Minecraft PE 0.14.3 (爱思正版).ipa",
+    "plistUrl": "plist/_____Minecraft_PE_0_14_3_______.plist",
+    "apkUrl": "",
+    "size": "29.2 MB",
+    "category": "应用",
+    "description": "由 InstallIPA 自动生成",
+    "minIosVersion": "6.0",
+    "screenshots": []
+  }
+]
