@@ -1,6 +1,7 @@
 name: Auto Generate plist and apps.json
 
 on:
+workflow_dispatch:
   push:
     branches: [ main ]
     paths:
