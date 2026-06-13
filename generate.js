@@ -9,6 +9,7 @@ const PUBLIC_DIR = __dirname;
 const PLIST_DIR = path.join(PUBLIC_DIR, 'plist');
 const ICON_DIR = path.join(PUBLIC_DIR, 'icons');
 const APPS_JSON = path.join(PUBLIC_DIR, 'apps.json');
+const PROCESSED_JSON = path.join(PUBLIC_DIR, 'processed.json');   // 缓存文件
 
 // 自动创建必要目录
 [IPA_DIR, PLIST_DIR, ICON_DIR].forEach(dir => {
@@ -24,11 +25,22 @@ if (ipaContents.length === 0) {
     }
 }
 
+// 读取已处理记录
+let processed = {};
+if (fs.existsSync(PROCESSED_JSON)) {
+    try {
+        processed = JSON.parse(fs.readFileSync(PROCESSED_JSON, 'utf8'));
+    } catch (e) {
+        processed = {};
+    }
+}
+
 async function processIPA(ipaPath) {
     const zip = new AdmZip(ipaPath);
     const fileName = path.basename(ipaPath, '.ipa');
     const ipaName = fileName.replace(/[^a-zA-Z0-9_]/g, '_');
 
+    // 解析 Info.plist
     const plistEntries = zip.getEntries().filter(e => e.entryName.endsWith('.app/Info.plist'));
     if (plistEntries.length === 0) throw new Error('未找到 Info.plist');
     const plistData = plist.parse(plistEntries[0].getData().toString('utf8'));
@@ -37,6 +49,7 @@ async function processIPA(ipaPath) {
     const version = plistData.CFBundleShortVersionString || '1.0';
     const displayName = plistData.CFBundleDisplayName || plistData.CFBundleName || fileName;
 
+    // 提取图标
     let iconName = 'AppIcon60x60@2x.png';
     const icons = plistData.CFBundleIcons?.CFBundlePrimaryIcon?.CFBundleIconFiles ||
                   plistData.CFBundleIconFiles || [];
@@ -55,11 +68,12 @@ async function processIPA(ipaPath) {
         iconUrl = `icons/${iconFileName}`;
     }
 
+    // 生成 plist 文件
     const plistFileName = `${ipaName}.plist`;
     const plistPath = path.join(PLIST_DIR, plistFileName);
-    // ========== 修改下面这行为你的 GitHub Pages 地址 ==========
-    const baseURL = 'https://github.com/Cakee007/Installipa';
-    // =========================================================
+    // ---------- 修改为你的实际 GitHub Pages 地址 ----------
+    const baseURL = 'https://你的用户名.github.io/仓库名';
+    // ----------------------------------------------------
     const ipaURL = `${baseURL}/ipa/${path.basename(ipaPath)}`;
     const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -112,22 +126,81 @@ async function processIPA(ipaPath) {
 }
 
 async function main() {
-    if (!fs.existsSync(IPA_DIR)) fs.mkdirSync(IPA_DIR);
-    const ipaFiles = fs.readdirSync(IPA_DIR).filter(f => f.toLowerCase().endsWith('.ipa'));
+    // 获取当前 IPA 文件列表（仅 .ipa）
+    const allFiles = fs.readdirSync(IPA_DIR).filter(f => f.toLowerCase().endsWith('.ipa'));
+    const currentFilesMap = new Map();
+    allFiles.forEach(file => {
+        const fullPath = path.join(IPA_DIR, file);
+        const mtime = fs.statSync(fullPath).mtimeMs;
+        currentFilesMap.set(file, mtime);
+    });
 
-    const apps = [];
-    for (const file of ipaFiles) {
-        try {
-            console.log(`处理中: ${file}`);
-            const app = await processIPA(path.join(IPA_DIR, file));
-            apps.push(app);
-        } catch (err) {
-            console.error(`处理 ${file} 失败:`, err.message);
+    // 找出新增或修改过的 IPA
+    const toProcess = [];
+    for (const [file, mtime] of currentFilesMap) {
+        if (!processed[file] || processed[file] !== mtime) {
+            toProcess.push(file);
         }
     }
 
-    fs.writeFileSync(APPS_JSON, JSON.stringify(apps, null, 2));
-    console.log(`成功生成 apps.json，共 ${apps.length} 个应用`);
+    // 处理新增/修改的 IPA
+    const appsFromProcessed = [];  // 保存本次处理生成的 app 数据
+    for (const file of toProcess) {
+        try {
+            console.log(`处理中: ${file}`);
+            const app = await processIPA(path.join(IPA_DIR, file));
+            appsFromProcessed.push({ file, app });
+            // 更新缓存记录
+            processed[file] = currentFilesMap.get(file);
+        } catch (err) {
+            console.error(`处理 ${file} 失败:`, err.message);
+            // 如果失败，保留旧记录（不更新）
+        }
+    }
+
+    // 清理缓存中已不存在的 IPA
+    for (const file of Object.keys(processed)) {
+        if (!currentFilesMap.has(file)) {
+            delete processed[file];
+        }
+    }
+
+    // 保存更新后的缓存
+    fs.writeFileSync(PROCESSED_JSON, JSON.stringify(processed, null, 2));
+
+    // 读取现有的 apps.json（如果存在）
+    let apps = [];
+    if (fs.existsSync(APPS_JSON)) {
+        try {
+            apps = JSON.parse(fs.readFileSync(APPS_JSON, 'utf8'));
+        } catch (e) {
+            apps = [];
+        }
+    }
+
+    // 用 bundleId 作为唯一键，更新或新增应用数据
+    const appsMap = new Map(apps.map(a => [a.bundleId, a]));
+    for (const { app } of appsFromProcessed) {
+        appsMap.set(app.bundleId, app);   // 新应用覆盖旧数据
+    }
+
+    // 移除当前 IPA 中不存在的应用
+    const newApps = [];
+    for (const [file, mtime] of currentFilesMap) {
+        // 找到对应 bundleId（通过已处理数据匹配）
+        const existingApp = apps.find(a => a.ipaUrl === `ipa/${file}`);
+        if (existingApp) {
+            newApps.push(existingApp);
+        } else {
+            // 如果不在 apps 列表中但文件存在，说明可能刚刚处理完，从 appsMap 中取
+            const maybeApp = Array.from(appsMap.values()).find(a => a.ipaUrl === `ipa/${file}`);
+            if (maybeApp) newApps.push(maybeApp);
+        }
+    }
+
+    // 最终写入 apps.json
+    fs.writeFileSync(APPS_JSON, JSON.stringify(newApps, null, 2));
+    console.log(`成功更新 apps.json，共 ${newApps.length} 个应用`);
 }
 
 main();
